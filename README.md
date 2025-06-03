@@ -1,0 +1,30 @@
+# 基本データ処理
+pandas>=2.0.0           # データ操作・集計・成形用
+numpy>=1.24.0           # 数値計算・配列操作用
+scikit-learn>=1.3.0     # 機械学習関連
+
+# 可視化
+matplotlib>=3.7.0       # 基本的なデータの可視化
+seaborn>=0.12.0         # 統計グラフ
+plotly>=5.15.0          # ダッシュボード・webアプリ・etc...
+
+# NLP・機械学習（段階的にインストール）
+transformers>=4.30.0    # NLPモデル用ライブラリ
+torch>=2.0.0            # 深層学習用
+
+# 日本語処理
+ fugashi>=1.3.0        # MeCabを簡単に扱えるラッパー
+ unidic-lite>=1.0.8    # 辞書を簡単に導入
+ mecab-python3>=1.0.6  # 形態素分析をおこなうMeCabを直接扱う
+
+# Webアプリ
+streamlit>=1.25.0       # webアプリ作成用
+
+# ユーティリティ
+tqdm>=4.65.0            # プログレスバー表示用
+python-dotenv>=1.0.0    # .envから環境変数を呼び出す
+requests>=2.31.0        # http通信用
+
+# 開発用
+jupyter>=1.0.0          # Notebookの実行用
+ipykernel>=6.0.0        # Jupyter内でPythonカーネルを動かす
