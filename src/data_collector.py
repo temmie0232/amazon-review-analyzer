@@ -2,7 +2,7 @@
 Amazon レビュー分析プロジェクト - データ収集・前処理モジュール
 
 このファイルの目的：
-1. Amazon商品レビューのサンプルデータを生成する
+1. Amazon商品レビューの実データをKaggle APIから取得する
 2. データをクリーニング・前処理する  
 3. 感情分析用のラベル（positive/negative/neutral）を付ける
 4. CSVファイルで保存・読み込みできるようにする
@@ -37,46 +37,6 @@ class AmazonReviewCollector:
         # データ保存ディレクトリの設定
         self.data_dir = data_dir
         self.ensure_data_dir()  # フォルダが存在しない場合は作成
-        
-        # 商品カテゴリの定義（分析対象を明確に）
-        self.target_categories = {
-            "electronics": ["充電器", "イヤホン", "ケーブル", "バッテリー"],
-            "books": ["プログラミング本", "ビジネス書", "自己啓発本"],
-            "daily_goods": ["キッチン用品", "掃除用具", "収納ボックス"]
-        }
-        
-        # 好評レビューのパターン（高評価の場合に使用）
-        self.positive_patterns = [
-            "とても良い商品です。品質が高く、長く使えそうです。",
-            "期待以上の性能でした。買って良かったです。",
-            "デザインが素晴らしく、使いやすいです。",
-            "コストパフォーマンスが最高です。おすすめします。",
-            "配送も早く、梱包も丁寧でした。また利用したいです。",
-            "思っていたより良い品質で満足しています。",
-            "値段の割に機能が充実していて驚きました。",
-            "使いやすくて、毎日愛用しています。"
-        ]
-        
-        # 定評レビューのパターン（低評価の場合に使用）
-        self.negative_patterns = [
-            "品質が期待より低く、すぐに壊れました。",
-            "説明と実際の商品が違いました。残念です。",
-            "価格に見合わない品質だと思います。",
-            "使いにくく、期待していたより不便です。",
-            "充電速度が遅く、時間がかかりすぎます。",
-            "音質が悪く、ノイズが気になります。",
-            "届いた商品に傷がありました。",
-            "サイズが思っていたより小さくて使いづらいです。"
-        ]
-        
-        # 普通レビューのパターン
-        self.neutral_patterns = [
-            "普通の商品だと思います。可もなく不可もなく。",
-            "値段相応の品質です。特に問題はありません。",
-            "期待していた通りの商品でした。",
-            "使えますが、特別良いというわけではありません。",
-            "標準的な商品です。必要最低限の機能はあります。"
-        ]
     
     def ensure_data_dir(self):
         """
@@ -120,47 +80,40 @@ class AmazonReviewCollector:
         Returns:
             pd.DataFrame: 実データ
         """
-        try:
-            print(f"Kaggleから実データを取得中: {dataset_name}")
-            
-            # Kaggle API設定
-            self.setup_kaggle_api()
-            
-            # データセットダウンロード
-            download_path = os.path.join(self.data_dir, "kaggle_raw")
-            os.makedirs(download_path, exist_ok=True)
-            
-            # kaggle datasets download
-            kaggle.api.dataset_download_files(
-                dataset_name, 
-                path=download_path, 
-                unzip=True
-            )
-            
-            # CSVファイルを探して読み込み
-            csv_files = [f for f in os.listdir(download_path) if f.endswith('.csv')]
-            
-            if not csv_files:
-                raise FileNotFoundError("CSVファイルが見つかりません")
-            
-            # 最初のCSVファイルを読み込み
-            csv_path = os.path.join(download_path, csv_files[0])
-            df_raw = pd.read_csv(csv_path)
-            
-            print(f"実データ取得完了: {len(df_raw)}件")
-            print(f"   ファイル: {csv_files[0]}")
-            print(f"   列: {list(df_raw.columns)}")
-            
-            # Amazon レビューフォーマットに変換
-            df_converted = self._convert_kaggle_to_amazon_format(df_raw)
-            
-            return df_converted
-            
-        except Exception as e:
-            print(f"Kaggle API エラー: {e}")
-            print("サンプルデータで代替します...")
-            return self._generate_sample_data()
-    
+        print(f"Kaggleから実データを取得中: {dataset_name}")
+        
+        # Kaggle API設定
+        self.setup_kaggle_api()
+        
+        # データセットダウンロード
+        download_path = os.path.join(self.data_dir, "kaggle_raw")
+        os.makedirs(download_path, exist_ok=True)
+        
+        # kaggle datasets download
+        kaggle.api.dataset_download_files(
+            dataset_name, 
+            path=download_path, 
+            unzip=True
+        )
+        
+        # CSVファイルを探して読み込み
+        csv_files = [f for f in os.listdir(download_path) if f.endswith('.csv')]
+        
+        if not csv_files:
+            raise FileNotFoundError("CSVファイルが見つかりません")
+        
+        # 最初のCSVファイルを読み込み
+        csv_path = os.path.join(download_path, csv_files[0])
+        df_raw = pd.read_csv(csv_path)
+        
+        print(f"実データ取得完了: {len(df_raw)}件")
+        print(f"   ファイル: {csv_files[0]}")
+        print(f"   列: {list(df_raw.columns)}")
+        
+        # Amazon レビューフォーマットに変換
+        df_converted = self._convert_kaggle_to_amazon_format(df_raw)
+        
+        return df_converted
     
     def _convert_kaggle_to_amazon_format(self, df_kaggle: pd.DataFrame) -> pd.DataFrame:
         """
@@ -320,157 +273,19 @@ class AmazonReviewCollector:
             categories = ['food', 'beverages', 'snacks']
             return pd.Series(np.random.choice(categories, len(df)))
         
-    def load_kaggle_dataset(self, dataset_name: str = "amazon_reviews", use_real_data: bool = True) -> pd.DataFrame:
+    def load_kaggle_dataset(self, dataset_name: str = "amazon_reviews") -> pd.DataFrame:
         """
-        データセット読み込み（更新版）
+        データセット読み込み（実データのみ）
         
         Args:
             dataset_name (str): データセット名
-            use_real_data (bool): 実データを使用するか
             
         Returns:
             pd.DataFrame: レビューデータ
         """
-        if use_real_data:
-            try:
-                # 実データ取得を試行
-                return self.load_real_kaggle_dataset("snap/amazon-fine-food-reviews")
-            except Exception as e:
-                print(f"実データ取得失敗: {e}")
-                print("サンプルデータで代替します...")
-                return self._generate_sample_data()
-        else:
-            # サンプルデータ使用
-            print("サンプルデータを生成中...")
-            return self._generate_sample_data()
+        # 実データ取得
+        return self.load_real_kaggle_dataset("snap/amazon-fine-food-reviews")
 
-    def _generate_sample_data(self, n_samples: int = 3000) -> pd.DataFrame:
-        """
-        現実的なサンプルデータ生成
-        
-        Args:
-            n_samples (int): 生成するレビュー数（デフォルト3000件）
-            
-        Returns:
-            pd.DataFrame: 生成されたレビューデータ
-        """
-        print(f"{n_samples}件のサンプルデータを生成中...")
-        
-        # 乱数のシード設定
-        np.random.seed(42)
-        
-        # 商品マスターデータの作成
-        products = []
-        for category, items in self.target_categories.items():
-            for item in items:
-                products.append({
-                    "name": item,        # 商品名
-                    "category": category # カテゴリ
-                })
-        
-        # メインのデータ生成ループ
-        data = []
-        
-        # tqdm: プログレスバー表示
-        for i in tqdm(range(n_samples), desc="データ生成中"):
-            
-            # ステップ1: ランダムに商品を選択
-            product = np.random.choice(products)
-            
-            # ステップ2: 現実的な評価分布で評価を生成
-            # 実際のAmazonは高評価が多いので、それを反映
-            rating = np.random.choice(
-                [1, 2, 3, 4, 5],                    # 評価値
-                p=[0.05, 0.10, 0.15, 0.35, 0.35]   # 各評価の出現確率
-            )
-            # 5点が35%、4点が35%、3点が15%、2点が10%、1点が5%
-            
-            # ステップ3: 評価に応じたレビューテキスト生成
-            review_text = self._generate_review_text(rating, product["name"])
-            
-            # ステップ4: リアルな日付生成
-            start_date = datetime.now() - timedelta(days=365)
-            random_days = np.random.randint(0, 365)
-            review_date = start_date + timedelta(days=random_days)
-            
-            # ステップ5: データレコード作成
-            record = {
-                # 商品情報
-                "product_id": f"B{i:06d}",                    # 商品ID（B000001形式）
-                "product_name": product["name"],              # 商品名
-                "product_category": product["category"],      # カテゴリ
-                
-                # レビュー情報  
-                "review_id": f"R{i:08d}",                    # レビューID
-                "rating": rating,                            # 評価（1-5）
-                "review_text": review_text,                  # レビュー本文
-                
-                # メタデータ（追加情報）
-                "helpful_votes": np.random.randint(0, 50),   # 「役に立った」票数
-                "total_votes": np.random.randint(0, 100),    # 総投票数
-                "verified_purchase": np.random.choice(       # 購入確認済みか
-                    [True, False], p=[0.85, 0.15]           # 85%が確認済み
-                ),
-                "review_date": review_date                   # レビュー日付
-            }
-            
-            # リストにレコードを追加
-            data.append(record)
-        
-        # リストをDataFrameに変換
-        df = pd.DataFrame(data)
-        print(f"サンプルデータ生成完了: {len(df)}件")
-        return df
-    
-    def _generate_review_text(self, rating: int, product_name: str) -> str:
-        """
-        評価に基づくレビューテキスト生成
-        
-        Args:
-            rating (int): 評価（1-5）
-            product_name (str): 商品名
-            
-        Returns:
-            str: 生成されたレビューテキスト
-        """
-        
-        if rating >= 4:
-            # 高評価（4-5点）の場合
-            base_text = np.random.choice(self.positive_patterns)
-            
-            # 商品カテゴリに応じた具体的なコメント追加
-            if "充電器" in product_name:
-                specifics = ["充電速度が早いです。", "ケーブルも丈夫そうです。", "コンパクトで持ち運びやすいです。"]
-            elif "イヤホン" in product_name:
-                specifics = ["音質がクリアです。", "フィット感が良いです。", "長時間使っても疲れません。"]
-            elif "本" in product_name:
-                specifics = ["内容が分かりやすいです。", "実践的で役立ちます。", "読みやすい構成です。"]
-            else:
-                specifics = ["機能が充実しています。", "デザインが気に入りました。"]
-            
-            # 基本文 + 具体的コメント
-            return base_text + " " + np.random.choice(specifics)
-            
-        elif rating <= 2:
-            # 低評価（1-2点）の場合
-            base_text = np.random.choice(self.negative_patterns)
-            
-            # 商品カテゴリに応じた具体的な問題点追加
-            if "充電器" in product_name:
-                specifics = ["充電できませんでした。", "ケーブルがすぐ断線しました。", "発熱が気になります。"]
-            elif "イヤホン" in product_name:
-                specifics = ["音が途切れます。", "耳にフィットしません。", "音質が悪すぎます。"]
-            elif "本" in product_name:
-                specifics = ["内容が薄いです。", "期待していた内容と違いました。", "誤字が多いです。"]
-            else:
-                specifics = ["機能が不十分です。", "すぐに故障しました。"]
-            
-            return base_text + " " + np.random.choice(specifics)
-            
-        else:
-            # 中評価（3点）の場合
-            return np.random.choice(self.neutral_patterns)
-    
     def preprocess_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         データの前処理・クリーニング
@@ -707,31 +522,31 @@ class AmazonReviewCollector:
         print(f"   期間: {basic['date_range']['start']} ～ {basic['date_range']['end']}")
         
         # 評価分析の表示
-        print(f"\n評価分析:")
+        print(f"\n⭐ 評価分析:")
         rating = summary["rating_analysis"]
         print(f"   平均評価: {rating['average_rating']}/5.0")
         print(f"   評価分布: {rating['rating_distribution']}")
         
         # 感情分析の表示
-        print(f"\n感情分析:")
+        print(f"\n😊 感情分析:")
         sentiment = summary["sentiment_analysis"]
         print(f"   感情分布: {sentiment['sentiment_distribution']}")
         print(f"   ネガティブ率: {sentiment['negative_ratio']}%")
         
         # カテゴリ分析の表示
-        print(f"\nカテゴリ分析:")
+        print(f"\n🏷️ カテゴリ分析:")
         category = summary["category_analysis"]
         print(f"   カテゴリ分布: {category['category_distribution']}")
         print(f"   カテゴリ別評価: {category['category_ratings']}")
         
         # テキスト分析の表示
-        print(f"\nテキスト分析:")
+        print(f"\n📝 テキスト分析:")
         text = summary["text_analysis"]
         print(f"   平均レビュー長: {text['average_review_length']} 文字")
         print(f"   購入確認済み率: {text['verified_purchase_ratio']}%")
         
         # 品質指標の表示
-        print(f"\n品質指標:")
+        print(f"\n✅ 品質指標:")
         quality = summary["quality_metrics"]
         print(f"   高品質レビュー: {quality['high_quality_reviews']} 件")
         print(f"   投票付きレビュー: {quality['reviews_with_votes']} 件")
@@ -745,7 +560,7 @@ def main():
     メイン実行関数 - データ収集から前処理まで一括実行
     
     1. データ収集器の初期化
-    2. サンプルデータ生成
+    2. 実データ取得
     3. データ前処理・クリーニング
     4. CSV保存
     5. 統計分析・品質チェック
@@ -757,12 +572,12 @@ def main():
         # ステップ1: データ収集器の初期化
         print("データ収集器を初期化中...")
         collector = AmazonReviewCollector()
-        print("   初期化完了（データフォルダ、カテゴリ設定済み）")
+        print("   初期化完了（データフォルダ設定済み）")
         
-        # ステップ2: データセットの読み込み（サンプル生成）
-        print("\nデータセットの読み込み中...")
+        # ステップ2: データセットの読み込み（実データ取得）
+        print("\nKaggleから実データセットを取得中...")
         df_raw = collector.load_kaggle_dataset()
-        print(f"   生データ取得完了: {len(df_raw)}件")
+        print(f"   実データ取得完了: {len(df_raw)}件")
         
         # ステップ3: データの前処理
         print("\nデータの前処理中...")
@@ -890,49 +705,39 @@ def demo_analysis(df: pd.DataFrame):
         print(f"   高品質 vs 通常の平均評価: {high_quality['rating'].mean():.2f} vs {normal_quality['rating'].mean():.2f}")
 
 
-def test_kaggle_integration():
-    """Kaggle API 統合テスト"""
-    collector = AmazonReviewCollector()
-    
-    print("Kaggle API統合テスト")
-    
-    # 実データ取得テスト
-    df_real = collector.load_kaggle_dataset(use_real_data=True)
-    print(f"実データ取得結果: {len(df_real)}件")
-    
-    # サンプルデータとの比較
-    df_sample = collector.load_kaggle_dataset(use_real_data=False)
-    print(f"サンプルデータ: {len(df_sample)}件")
-    
-    return df_real, df_sample
-
-
 def quick_test():
     """
-    クイックテスト - 少量データで動作確認
-    
+    クイックテスト - 実データの一部で動作確認
     """
     print("クイックテスト実行中...")
     
-    # 少量データでテスト
-    collector = AmazonReviewCollector()
-    
-    # 100件のテストデータ生成
-    df_test = collector._generate_sample_data(n_samples=100)
-    print(f"テストデータ生成: {len(df_test)}件")
-    
-    # 前処理テスト
-    df_processed = collector.preprocess_data(df_test)
-    print(f"前処理完了: {len(df_processed)}件")
-    
-    # 基本統計の計算・表示
-    summary = collector.get_data_summary(df_processed)
-    print(f"統計計算完了")
-    print(f"   平均評価: {summary['rating_analysis']['average_rating']}")
-    print(f"   感情分布: {summary['sentiment_analysis']['sentiment_distribution']}")
-    
-    print("クイックテスト完了!")
-    return df_processed
+    try:
+        collector = AmazonReviewCollector()
+        
+        # 実データを取得（全データ）
+        df_full = collector.load_kaggle_dataset()
+        print(f"実データ取得: {len(df_full)}件")
+        
+        # 一部データでテスト（最初の1000件）
+        df_test = df_full.head(1000)
+        print(f"テストデータ抽出: {len(df_test)}件")
+        
+        # 前処理テスト
+        df_processed = collector.preprocess_data(df_test)
+        print(f"前処理完了: {len(df_processed)}件")
+        
+        # 基本統計の計算・表示
+        summary = collector.get_data_summary(df_processed)
+        print(f"統計計算完了")
+        print(f"   平均評価: {summary['rating_analysis']['average_rating']}")
+        print(f"   感情分布: {summary['sentiment_analysis']['sentiment_distribution']}")
+        
+        print("クイックテスト完了!")
+        return df_processed
+        
+    except Exception as e:
+        print(f"クイックテストエラー: {e}")
+        return None
 
 
 def analyze_sample_reviews(df: pd.DataFrame, n_samples: int = 5):
@@ -980,4 +785,3 @@ if __name__ == "__main__":
         
         # サンプルレビューの確認
         analyze_sample_reviews(result_df, n_samples=3)
-    
