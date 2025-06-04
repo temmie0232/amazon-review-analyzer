@@ -210,7 +210,12 @@ class AmazonReviewCollector:
         
         # 日付の処理
         if 'review_date' in df_converted.columns:
-            df_converted['review_date'] = pd.to_datetime(df_converted['review_date'], errors='coerce')
+            # Unix時間を正しく変換
+            df_converted['review_date'] = pd.to_datetime(df_converted['review_date'], unit='s', errors='coerce')
+        # unit='s' を指定してUnix秒を正しく変換
+        elif 'Time' in df_converted.columns:
+            # 元のTime列からの変換
+            df_converted['review_date'] = pd.to_datetime(df_converted['Time'], unit='s', errors='coerce')
         else:
             # ランダムな日付生成
             df_converted['review_date'] = pd.date_range(
