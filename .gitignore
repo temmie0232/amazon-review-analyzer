@@ -48,18 +48,15 @@ Thumbs.db
 secrets.json
 config.ini
 api_keys.txt
+kaggle.json
 
-# データファイル (サイズによって判断)
-# 大きなデータファイル (>100MB)
-data/large_datasets/
-data/raw/amazon_reviews_full.csv
-data/external/competitor_data.csv
+# データファイル全体を除外
+data/
+!data/.gitkeep
 
 # 機械学習モデル (サイズによって判断)
-# 大きなモデルファイル (>100MB)
-models/bert-large/
-models/pytorch_model.bin
-models/tf_model.h5
+models/
+!models/.gitkeep
 *.pkl
 *.joblib
 
@@ -71,12 +68,9 @@ cache/
 *.log
 logs/
 
-# 分析結果の中間ファイル
-results/temp/
-results/intermediate/
-*.pdf
-*.xlsx
-*.pptx
+# 分析結果
+results/
+!results/.gitkeep
 
 # OS生成ファイル
 .DS_Store
@@ -102,5 +96,3 @@ coverage.xml
 
 # Streamlit関連
 .streamlit/
-
-kaggle.json
