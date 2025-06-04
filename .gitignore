@@ -102,3 +102,5 @@ coverage.xml
 
 # Streamlit関連
 .streamlit/
+
+kaggle.json
