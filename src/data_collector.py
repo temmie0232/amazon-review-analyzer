@@ -106,9 +106,9 @@ class AmazonReviewCollector:
         if os.path.exists("kaggle.json"):
             shutil.copy("kaggle.json", os.path.join(kaggle_dir, "kaggle.json"))
             os.chmod(os.path.join(kaggle_dir, "kaggle.json"), 0o600)
-            print("✅ Kaggle API認証設定完了")
+            print("Kaggle API認証設定完了")
         else:
-            print("⚠️ kaggle.json が見つかりません")
+            print("kaggle.json が見つかりません")
     
     def load_real_kaggle_dataset(self, dataset_name: str = "snap/amazon-fine-food-reviews") -> pd.DataFrame:
         """
@@ -121,7 +121,7 @@ class AmazonReviewCollector:
             pd.DataFrame: 実データ
         """
         try:
-            print(f"📡 Kaggleから実データを取得中: {dataset_name}")
+            print(f"Kaggleから実データを取得中: {dataset_name}")
             
             # Kaggle API設定
             self.setup_kaggle_api()
@@ -147,7 +147,7 @@ class AmazonReviewCollector:
             csv_path = os.path.join(download_path, csv_files[0])
             df_raw = pd.read_csv(csv_path)
             
-            print(f"✅ 実データ取得完了: {len(df_raw)}件")
+            print(f"実データ取得完了: {len(df_raw)}件")
             print(f"   ファイル: {csv_files[0]}")
             print(f"   列: {list(df_raw.columns)}")
             
@@ -157,8 +157,8 @@ class AmazonReviewCollector:
             return df_converted
             
         except Exception as e:
-            print(f"❌ Kaggle API エラー: {e}")
-            print("📊 サンプルデータで代替します...")
+            print(f"Kaggle API エラー: {e}")
+            print("サンプルデータで代替します...")
             return self._generate_sample_data()
     
     
@@ -172,7 +172,7 @@ class AmazonReviewCollector:
         Returns:
             pd.DataFrame: 統一フォーマットデータ
         """
-        print("🔄 データフォーマット変換中...")
+        print("データフォーマット変換中...")
         
         # 列名のマッピング（データセットに応じて調整）
         column_mapping = {
@@ -232,7 +232,7 @@ class AmazonReviewCollector:
         # 評価の範囲調整（1-5に正規化）
         df_converted['rating'] = df_converted['rating'].clip(1, 5)
         
-        print(f"✅ フォーマット変換完了: {len(df_converted)}件")
+        print(f"フォーマット変換完了: {len(df_converted)}件")
         return df_converted
     
     def _estimate_product_names(self, df: pd.DataFrame) -> pd.Series:
