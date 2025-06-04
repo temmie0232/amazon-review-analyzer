@@ -241,24 +241,52 @@ class AmazonReviewCollector:
         return df_converted
     
     def _estimate_product_names(self, df: pd.DataFrame) -> pd.Series:
-        """実データから商品名を推定"""
-        if 'review_text' in df.columns:
-            # レビューテキストから商品名っぽいものを抽出（簡易版）
-            product_keywords = ['coffee', 'tea', 'food', 'snack', 'drink', 'candy']
+        """実データから商品名を推定（改善版）"""
+        
+        def extract_product_name(text, summary="", product_id=""):
+            if pd.isna(text):
+                text = ""
+            if pd.isna(summary):
+                summary = ""
+                
+            text_lower = str(text).lower()
+            summary_lower = str(summary).lower()
             
-            def extract_product_name(text):
-                if pd.isna(text):
-                    return "Unknown Product"
-                text_lower = str(text).lower()
-                for keyword in product_keywords:
+            # 1. サマリーから商品名抽出（より具体的）
+            if summary and len(summary) > 3:
+                # サマリーは商品名に近い場合が多い
+                return str(summary)[:50]  # 長すぎる場合は短縮
+            
+            # 2. レビューテキストからキーワード抽出
+            product_keywords = {
+                'coffee': ['coffee', 'espresso', 'latte', 'cappuccino'],
+                'tea': ['tea', 'green tea', 'black tea', 'herbal'],
+                'snack': ['chips', 'crackers', 'nuts', 'cookies'],
+                'candy': ['candy', 'chocolate', 'gum', 'sweet'],
+                'food': ['sauce', 'pasta', 'rice', 'cereal']
+            }
+            
+            for category, keywords in product_keywords.items():
+                for keyword in keywords:
                     if keyword in text_lower:
-                        return keyword.title() + " Product"
-                return "Food Product"
+                        return f"{keyword.title()}"
             
-            return df['review_text'].apply(extract_product_name)
+            # 3. ProductIDの活用
+            if product_id:
+                return f"Product {product_id}"
+            
+            return "Unknown Food Product"
+        
+        # 複数列を活用
+        if 'review_text' in df.columns:
+            return df.apply(lambda row: extract_product_name(
+                row.get('review_text', ''),
+                row.get('review_title', ''),
+                row.get('product_id', '')
+            ), axis=1)
         else:
             return pd.Series(["Unknown Product"] * len(df))
-        
+
     def _estimate_categories(self, df: pd.DataFrame) -> pd.Series:
         """実データからカテゴリを推定"""
         
