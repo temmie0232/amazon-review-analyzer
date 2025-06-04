@@ -261,10 +261,37 @@ class AmazonReviewCollector:
         
     def _estimate_categories(self, df: pd.DataFrame) -> pd.Series:
         """実データからカテゴリを推定"""
-        # 簡易的なカテゴリ分類
-        categories = ['food', 'beverages', 'snacks']
-        return pd.Series(np.random.choice(categories, len(df)))
-    
+        
+        def categorize_review(text, summary=""):
+            if pd.isna(text):
+                text = ""
+            if pd.isna(summary):
+                summary = ""
+            
+            text_lower = str(text).lower() + " " + str(summary).lower()
+            
+            # より詳細なキーワード分類
+            if any(word in text_lower for word in ['coffee', 'tea', 'beverage', 'drink', 'juice', 'soda']):
+                return 'beverages'
+            elif any(word in text_lower for word in ['snack', 'chip', 'candy', 'cookie', 'cracker', 'nuts']):
+                return 'snacks'
+            elif any(word in text_lower for word in ['food', 'sauce', 'spice', 'pasta', 'rice', 'meat']):
+                return 'food'
+            else:
+                # デフォルトは最も一般的なカテゴリ
+                return 'food'
+        
+        # レビューテキストとサマリーの両方を使用
+        if 'review_text' in df.columns and 'review_title' in df.columns:
+            return df.apply(lambda row: categorize_review(row['review_text'], row['review_title']), axis=1)
+        elif 'review_text' in df.columns:
+            return df['review_text'].apply(lambda x: categorize_review(x))
+        else:
+            # フォールバック：ランダムだが警告
+            print("⚠️ テキストデータなし：カテゴリをランダム推定")
+            categories = ['food', 'beverages', 'snacks']
+            return pd.Series(np.random.choice(categories, len(df)))
+        
     def load_kaggle_dataset(self, dataset_name: str = "amazon_reviews", use_real_data: bool = True) -> pd.DataFrame:
         """
         データセット読み込み（更新版）
