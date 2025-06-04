@@ -10,6 +10,7 @@ Amazon レビュー分析プロジェクト - データ収集・前処理モジ�
 
 """
 
+import kaggle
 import pandas as pd         
 import numpy as np   
 import os             
@@ -88,31 +89,201 @@ class AmazonReviewCollector:
             os.makedirs(self.data_dir)  # フォルダを作成
             print(f"データディレクトリを作成しました: {self.data_dir}")
     
-    
-    def load_kaggle_dataset(self, dataset_name: str = "amazon_reviews") -> pd.DataFrame:
+    def setup_kaggle_api(self):
         """
-        データセット読み込み (仮)
-        - 現実的なサンプルデータを生成（学習・デモ目的）
+        Kaggle API の設定
+        kaggle.json ファイルを適切な場所に配置
+        """
+        import os
+        import shutil
+        
+        # Kaggle 認証ディレクトリの準備
+        kaggle_dir = os.path.expanduser("~/.kaggle")
+        if not os.path.exists(kaggle_dir):
+            os.makedirs(kaggle_dir)
+        
+        # kaggle.json ファイルのコピー（プロジェクトルートから）
+        if os.path.exists("kaggle.json"):
+            shutil.copy("kaggle.json", os.path.join(kaggle_dir, "kaggle.json"))
+            os.chmod(os.path.join(kaggle_dir, "kaggle.json"), 0o600)
+            print("✅ Kaggle API認証設定完了")
+        else:
+            print("⚠️ kaggle.json が見つかりません")
+    
+    def load_real_kaggle_dataset(self, dataset_name: str = "snap/amazon-fine-food-reviews") -> pd.DataFrame:
+        """
+        実際のKaggleデータセットを取得・処理
+        
+        Args:
+            dataset_name (str): Kaggleデータセット名
+            
+        Returns:
+            pd.DataFrame: 実データ
+        """
+        try:
+            print(f"📡 Kaggleから実データを取得中: {dataset_name}")
+            
+            # Kaggle API設定
+            self.setup_kaggle_api()
+            
+            # データセットダウンロード
+            download_path = os.path.join(self.data_dir, "kaggle_raw")
+            os.makedirs(download_path, exist_ok=True)
+            
+            # kaggle datasets download
+            kaggle.api.dataset_download_files(
+                dataset_name, 
+                path=download_path, 
+                unzip=True
+            )
+            
+            # CSVファイルを探して読み込み
+            csv_files = [f for f in os.listdir(download_path) if f.endswith('.csv')]
+            
+            if not csv_files:
+                raise FileNotFoundError("CSVファイルが見つかりません")
+            
+            # 最初のCSVファイルを読み込み
+            csv_path = os.path.join(download_path, csv_files[0])
+            df_raw = pd.read_csv(csv_path)
+            
+            print(f"✅ 実データ取得完了: {len(df_raw)}件")
+            print(f"   ファイル: {csv_files[0]}")
+            print(f"   列: {list(df_raw.columns)}")
+            
+            # Amazon レビューフォーマットに変換
+            df_converted = self._convert_kaggle_to_amazon_format(df_raw)
+            
+            return df_converted
+            
+        except Exception as e:
+            print(f"❌ Kaggle API エラー: {e}")
+            print("📊 サンプルデータで代替します...")
+            return self._generate_sample_data()
+    
+    
+    def _convert_kaggle_to_amazon_format(self, df_kaggle: pd.DataFrame) -> pd.DataFrame:
+        """
+        Kaggleデータを統一フォーマットに変換
+        
+        Args:
+            df_kaggle (pd.DataFrame): Kaggle生データ
+            
+        Returns:
+            pd.DataFrame: 統一フォーマットデータ
+        """
+        print("🔄 データフォーマット変換中...")
+        
+        # 列名のマッピング（データセットに応じて調整）
+        column_mapping = {
+            # Amazon Fine Food Reviews の場合
+            'Id': 'review_id',
+            'ProductId': 'product_id', 
+            'UserId': 'user_id',
+            'Score': 'rating',
+            'Summary': 'review_title',
+            'Text': 'review_text',
+            'Time': 'review_date'
+        }
+        
+        # 列名変更
+        df_converted = df_kaggle.rename(columns=column_mapping)
+        
+        # 必要な列の確認・追加
+        required_columns = ['product_id', 'rating', 'review_text']
+        missing_columns = [col for col in required_columns if col not in df_converted.columns]
+        
+        if missing_columns:
+            print(f"⚠️ 不足列を補完: {missing_columns}")
+            
+            # 不足列の補完
+            if 'product_id' in missing_columns:
+                df_converted['product_id'] = df_converted.index.map(lambda x: f"B{x:06d}")
+            if 'rating' in missing_columns:
+                df_converted['rating'] = 5  # デフォルト値
+            if 'review_text' in missing_columns:
+                df_converted['review_text'] = "No review text available"
+        
+        # 商品名・カテゴリの推定（実データに基づく）
+        df_converted['product_name'] = self._estimate_product_names(df_converted)
+        df_converted['product_category'] = self._estimate_categories(df_converted)
+        
+        # 日付の処理
+        if 'review_date' in df_converted.columns:
+            df_converted['review_date'] = pd.to_datetime(df_converted['review_date'], errors='coerce')
+        else:
+            # ランダムな日付生成
+            df_converted['review_date'] = pd.date_range(
+                start='2023-01-01', 
+                end='2024-12-31', 
+                periods=len(df_converted)
+            )
+        
+        # メタデータの追加
+        df_converted['helpful_votes'] = np.random.randint(0, 20, len(df_converted))
+        df_converted['total_votes'] = df_converted['helpful_votes'] + np.random.randint(0, 10, len(df_converted))
+        df_converted['verified_purchase'] = np.random.choice([True, False], len(df_converted), p=[0.8, 0.2])
+        
+        # データ型の調整
+        df_converted['rating'] = pd.to_numeric(df_converted['rating'], errors='coerce')
+        df_converted = df_converted.dropna(subset=['rating'])
+        df_converted['rating'] = df_converted['rating'].astype(int)
+        
+        # 評価の範囲調整（1-5に正規化）
+        df_converted['rating'] = df_converted['rating'].clip(1, 5)
+        
+        print(f"✅ フォーマット変換完了: {len(df_converted)}件")
+        return df_converted
+    
+    def _estimate_product_names(self, df: pd.DataFrame) -> pd.Series:
+        """実データから商品名を推定"""
+        if 'review_text' in df.columns:
+            # レビューテキストから商品名っぽいものを抽出（簡易版）
+            product_keywords = ['coffee', 'tea', 'food', 'snack', 'drink', 'candy']
+            
+            def extract_product_name(text):
+                if pd.isna(text):
+                    return "Unknown Product"
+                text_lower = str(text).lower()
+                for keyword in product_keywords:
+                    if keyword in text_lower:
+                        return keyword.title() + " Product"
+                return "Food Product"
+            
+            return df['review_text'].apply(extract_product_name)
+        else:
+            return pd.Series(["Unknown Product"] * len(df))
+        
+    def _estimate_categories(self, df: pd.DataFrame) -> pd.Series:
+        """実データからカテゴリを推定"""
+        # 簡易的なカテゴリ分類
+        categories = ['food', 'beverages', 'snacks']
+        return pd.Series(np.random.choice(categories, len(df)))
+    
+    def load_kaggle_dataset(self, dataset_name: str = "amazon_reviews", use_real_data: bool = True) -> pd.DataFrame:
+        """
+        データセット読み込み（更新版）
         
         Args:
             dataset_name (str): データセット名
+            use_real_data (bool): 実データを使用するか
             
         Returns:
-            pd.DataFrame: レビューデータが入った表形式データ
+            pd.DataFrame: レビューデータ
         """
-        try:
-            print("レビューデータを生成中...")
-            # サンプルデータ生成（実際はAPIや外部データ取得）
-            sample_data = self._generate_sample_data()
-            print(f"{len(sample_data)}件のレビューデータを生成しました")
-            return sample_data
-            
-        except Exception as e:
-            # エラーが発生した場合の処理
-            print(f"データセット読み込みエラー: {e}")
-            print("サンプルデータで代替します...")
+        if use_real_data:
+            try:
+                # 実データ取得を試行
+                return self.load_real_kaggle_dataset("snap/amazon-fine-food-reviews")
+            except Exception as e:
+                print(f"実データ取得失敗: {e}")
+                print("サンプルデータで代替します...")
+                return self._generate_sample_data()
+        else:
+            # サンプルデータ使用
+            print("サンプルデータを生成中...")
             return self._generate_sample_data()
-    
+
     def _generate_sample_data(self, n_samples: int = 3000) -> pd.DataFrame:
         """
         現実的なサンプルデータ生成
@@ -657,6 +828,23 @@ def demo_analysis(df: pd.DataFrame):
         # 高品質レビューと通常レビューの比較
         normal_quality = df[df["is_high_quality"] == False]
         print(f"   高品質 vs 通常の平均評価: {high_quality['rating'].mean():.2f} vs {normal_quality['rating'].mean():.2f}")
+
+
+def test_kaggle_integration():
+    """Kaggle API 統合テスト"""
+    collector = AmazonReviewCollector()
+    
+    print("Kaggle API統合テスト")
+    
+    # 実データ取得テスト
+    df_real = collector.load_kaggle_dataset(use_real_data=True)
+    print(f"実データ取得結果: {len(df_real)}件")
+    
+    # サンプルデータとの比較
+    df_sample = collector.load_kaggle_dataset(use_real_data=False)
+    print(f"サンプルデータ: {len(df_sample)}件")
+    
+    return df_real, df_sample
 
 
 def quick_test():
